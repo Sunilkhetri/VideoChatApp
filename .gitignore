@@ -2,4 +2,4 @@ client/build
 client/node_modules
 client/src/.env
 .env
-.idea/
+node_modules
