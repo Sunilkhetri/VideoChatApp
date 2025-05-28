@@ -43,7 +43,7 @@ server.listen(process.env.PORT || PORT, () => {
 // --- Only ONE initialization of io, with CORS ---
 const io = require("socket.io")(server, {
     cors: {
-        origin: "https://video-chat-app-silk.vercel.app", // your frontend URL
+        origin: "https://video-chat-app-silk.vercel.app/", // your frontend URL 
         methods: ["GET", "POST"]
     }
 });
@@ -59,7 +59,7 @@ io.use(async (socket, next) => {
         socket.userId = payload;
         const user = await User.findOne({ _id: socket.userId }).select('-password');
         socket.username = user.username;
-        socket.name = user.name;
+        socket.name = user.name; 
         next();
     } catch (error) {
         console.log(error);
