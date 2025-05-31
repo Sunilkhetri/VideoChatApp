@@ -1,6 +1,6 @@
 import io from "socket.io-client";
 import Peer from "simple-peer";
-import {addPeer, createPeer} from "./RoomUtils";
+import { addPeer, createPeer } from "./RoomUtils";
 
 const BASE_URL = process.env.REACT_APP_BASE_URL;
 
@@ -17,19 +17,17 @@ const RoomService = {
     return { socket, webcamStream };
   },
 
-
   setupSocketListeners: (socket, webcamStream, setPeers, screenCaptureStream, currentPeers, setMessages, roomId) => {
-    socket.emit("joinRoom", roomId); //sending to the server that a user joined to a room
+    socket.emit("joinRoom", roomId);
 
-    //server send array of socket id's of other user of same room so that new user can connect with other user via
-    //simple-peer for video transmission and message will be served using socket io
-    socket.on("usersInRoom", users => { //triggered in server and here receiving it
-        const tempPeers = [];
-        console.log('usersInRoom', users, webcamStream);
-        users.forEach(otherUserSocketId => {
-          //creating connection between two user via simple-peer for video
+    socket.on("usersInRoom", users => {
+      const tempPeers = [];
+      console.log('usersInRoom', users, webcamStream);
+      users.forEach(otherUserSocketId => {
+        // Prevent duplicate peers
+        if (!currentPeers.current.find(p => p.peerId === otherUserSocketId)) {
           const peer = createPeer(otherUserSocketId, socket.id, webcamStream, socket);
-          currentPeers.push({
+          currentPeers.current.push({
             peerId: otherUserSocketId,
             peer
           });
@@ -37,17 +35,21 @@ const RoomService = {
             peerId: otherUserSocketId,
             peer
           });
-        })
-        setPeers(tempPeers);
-      })
+        }
+      });
+      setPeers(tempPeers);
+    });
 
-      //a new user joined at same room send signal,callerId(simple-peer) and stream to server and server give it to
-      //us to create peer between two peer and connect
-      socket.on("userJoined", payload => {
+    socket.on("userJoined", payload => {
+      // Prevent duplicate peers
+      if (!currentPeers.current.find(p => p.peerId === payload.callerId)) {
         let peer;
-        if(screenCaptureStream) peer = addPeer(payload.signal, payload.callerId, screenCaptureStream, socket);
-        else peer = addPeer(payload.signal, payload.callerId, webcamStream, socket);
-        currentPeers.push({
+        if (screenCaptureStream.current) {
+          peer = addPeer(payload.signal, payload.callerId, screenCaptureStream.current, socket);
+        } else {
+          peer = addPeer(payload.signal, payload.callerId, webcamStream, socket);
+        }
+        currentPeers.current.push({
           peerId: payload.callerId,
           peer
         });
@@ -57,45 +59,43 @@ const RoomService = {
         };
 
         setPeers(users => [...users, peerObj]);
+      }
+    });
+
+    socket.on("takingReturnedSignal", payload => {
+      const item = currentPeers.current.find(p => p.peerId === payload.id);
+      if (item) item.peer.signal(payload.signal);
+    });
+
+    socket.on('receiveMessage', payload => {
+      setMessages(messages => [...messages, payload]);
+    });
+
+    socket.on('userLeft', id => {
+      const peerObj = currentPeers.current.find(p => p.peerId === id);
+      if (peerObj?.peer) peerObj.peer.destroy();
+      const peers = currentPeers.current.filter(p => p.peerId !== id);
+      currentPeers.current = peers;
+      setPeers(peers);
+    });
+
+    socket.on('disconnect', () => {
+      //destroying previous stream(webcam stream)
+      const previousWebcamStream = webcamStream;
+      const previousWebcamStreamTracks = previousWebcamStream.getTracks();
+      previousWebcamStreamTracks.forEach(track => {
+        track.stop();
       });
 
-      //receiving signal of other peer who is trying to connect and adding its signal at peersRef
-      socket.on("takingReturnedSignal", payload => {
-        const item = currentPeers.find(p => p.peerId === payload.id);
-          item.peer.signal(payload.signal);
-      });
-
-      //receiving message of an user and adding this at message state
-      socket.on('receiveMessage', payload => {
-        setMessages(messages => [...messages, payload]);
-      });
-
-      //user left and server send its peerId to disconnect from that peer
-      socket.on('userLeft', id => {
-        const peerObj = currentPeers.find(p => p.peerId === id);
-        if(peerObj?.peer) peerObj.peer.destroy(); //cancel connection with disconnected peer
-        const peers = currentPeers.filter(p => p.peerId !== id);
-        currentPeers = peers;
-        setPeers(peers);
-      });
-
-      socket.on('disconnect', (payload) => {
-        //destroying previous stream(webcam stream)
-        const previousWebcamStream = webcamStream;
-        const previousWebcamStreamTracks = previousWebcamStream.getTracks();
-        previousWebcamStreamTracks.forEach(track => {
+      //destroying previous stream(screen capture stream)
+      const previousScreenCaptureStream = screenCaptureStream.current;
+      if (previousScreenCaptureStream) {
+        const previousScreenCaptureStreamTracks = previousScreenCaptureStream.getTracks();
+        previousScreenCaptureStreamTracks.forEach(track => {
           track.stop();
         });
-
-        //destroying previous stream(screen capture stream)
-        const previousScreenCaptureStream = screenCaptureStream;
-        if(previousScreenCaptureStream) {
-          const previousScreenCaptureStreamTracks = previousScreenCaptureStream.getTracks();
-          previousScreenCaptureStreamTracks.forEach(track => {
-            track.stop();
-          });
-        }
-      });
+      }
+    });
   },
 };
 
