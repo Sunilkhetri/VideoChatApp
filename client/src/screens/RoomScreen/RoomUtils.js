@@ -106,7 +106,7 @@ export const createPeer = (userIdToSendSignal, mySocketId, stream, socket) => {
     process.env.REACT_APP_TURN_SERVER1_PASSWORD
   ) {
     iceServers.push({
-      urls: process.env.REACT_APP_TURN_SERVER1_NAME,
+      urls: process.env.REACT_APP_TURN_SERVER1_NAME.split(','),
       username: process.env.REACT_APP_TURN_SERVER1_USERNAME,
       credential: process.env.REACT_APP_TURN_SERVER1_PASSWORD
     });
@@ -117,7 +117,7 @@ export const createPeer = (userIdToSendSignal, mySocketId, stream, socket) => {
     process.env.REACT_APP_TURN_SERVER2_PASSWORD
   ) {
     iceServers.push({
-      urls: process.env.REACT_APP_TURN_SERVER2_NAME,
+      urls: process.env.REACT_APP_TURN_SERVER2_NAME.split(','),
       username: process.env.REACT_APP_TURN_SERVER2_USERNAME,
       credential: process.env.REACT_APP_TURN_SERVER2_PASSWORD
     });
