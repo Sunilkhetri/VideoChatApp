@@ -95,10 +95,13 @@ export const sendMessage = (e, socket, roomId, message) => {
 };
 
 export const createPeer = (userIdToSendSignal, mySocketId, stream, socket) => {
-  // Build ICE servers array only with defined values
+  // Build ICE servers array with Google STUN, Xirsys STUN, and Xirsys TURN
   const iceServers = [];
   if (process.env.REACT_APP_GOOGLE_STUN_SERVER) {
     iceServers.push({ urls: process.env.REACT_APP_GOOGLE_STUN_SERVER });
+  }
+  if (process.env.REACT_APP_XIRSYS_STUN_SERVER) {
+    iceServers.push({ urls: process.env.REACT_APP_XIRSYS_STUN_SERVER });
   }
   if (
     process.env.REACT_APP_TURN_SERVER1_NAME &&
